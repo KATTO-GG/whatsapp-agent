@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Agent Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0f1a;
+      --bg-elevated: #111827;
+      --fg: #e8ecf4;
+      --fg-muted: #8b95a8;
+      --accent: #00d4aa;
+      --accent-dim: #00d4aa33;
+      --border: #1e2a3e;
+      --card: #0f172a;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --success: #10b981;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) {
+        --bg: #f8fafc;
+        --bg-elevated: #ffffff;
+        --fg: #0f172a;
+        --fg-muted: #475569;
+        --accent: #059669;
+        --accent-dim: #05966922;
+        --border: #e2e8f0;
+        --card: #ffffff;
+      }
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f8fafc;
+      --bg-elevated: #ffffff;
+      --fg: #0f172a;
+      --fg-muted: #475569;
+      --accent: #059669;
+      --accent-dim: #05966922;
+      --border: #e2e8f0;
+      --card: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      padding: 40px 0 60px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    header::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%);
+      animation: pulse 4s ease-in-out infinite;
+      z-index: 0;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+      50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent);
+      margin-bottom: 24px;
+      animation: slideUp 0.6s ease-out;
+    }
+
+    .badge::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: blink 1.5s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 0 0 16px;
+      background: linear-gradient(135deg, var(--fg) 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: slideUp 0.8s ease-out 0.1s both;
+    }
+
+    .subtitle {
+      font-size: 1.25rem;
+      color: var(--fg-muted);
+      max-width: 600px;
+      margin: 0 auto;
+      animation: slideUp 0.8s ease-out 0.2s both;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Architecture Canvas */
+    .architecture {
+      position: relative;
+      padding: 40px 0;
+    }
+
+    .layer {
+      margin-bottom: 32px;
+    }
+
+    .layer-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--fg-muted);
+      margin-bottom: 16px;
+      padding-left: 4px;
+    }
+
+    .node-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .node {
+      position: relative;
+      padding: 20px 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      min-width: 200px;
+      max-width: 280px;
+      transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+      animation: nodeAppear 0.6s ease-out both;
+      cursor: default;
+    }
+
+    .node:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      border-color: var(--accent);
+    }
+
+    @keyframes nodeAppear {
+      from { opacity: 0; transform: translateY(30px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .node-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+      font-size: 20px;
+    }
+
+    .node-icon.whatsapp { background: linear-gradient(135deg, #25d366, #128c7e); }
+    .node-icon.api { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+    .node-icon.agent { background: linear-gradient(135deg, var(--accent), #059669); }
+    .node-icon.storage { background: linear-gradient(135deg, #f59e0b, #f97316); }
+    .node-icon.flow { background: linear-gradient(135deg, #ec4899, #f43f5e); }
+
+    .node h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 0 0 8px;
+      color: var(--fg);
+    }
+
+    .node p {
+      font-size: 12px;
+      color: var(--fg-muted);
+      margin: 0;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .node .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .tag {
+      font-size: 10px;
+      padding: 3px 8px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+    }
+
+    .tag.warning { background: rgba(245, 158, 11, 0.15); border-color: var(--warning); color: var(--warning); }
+    .tag.success { background: rgba(16, 185, 129, 0.15); border-color: var(--success); color: var(--success); }
+
+    /* Connections */
+    .connections {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .connection {
+      position: absolute;
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      opacity: 0;
+      animation: connectionDraw 1.5s ease-out forwards;
+    }
+
+    @keyframes connectionDraw {
+      from { opacity: 0; stroke-dashoffset: 100; }
+      to { opacity: 0.6; stroke-dashoffset: 0; }
+    }
+
+    /* Flow Animation */
+    .flow-particles {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .particle {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      opacity: 0;
+      animation: particleFlow 2s ease-in-out infinite;
+      box-shadow: 0 0 12px var(--accent), 0 0 24px var(--accent);
+    }
+
+    @keyframes particleFlow {
+      0% { opacity: 0; transform: scale(0.5); }
+      10% { opacity: 1; transform: scale(1); }
+      90% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.5); }
+    }
+
+    /* Message Flow Section */
+    .flow-section {
+      margin-top: 60px;
+      padding-top: 40px;
+      border-top: 1px solid var(--border);
+    }
+
+    .flow-section h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 32px;
+      color: var(--fg);
+    }
+
+    .flow-diagram {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .flow-step {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      min-width: 300px;
+      max-width: 800px;
+      width: 100%;
+      animation: nodeAppear 0.6s ease-out both;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .flow-step::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--accent);
+      transform: scaleY(0);
+      transform-origin: top;
+      animation: lineGrow 0.5s ease-out forwards;
+    }
+
+    @keyframes lineGrow {
+      to { transform: scaleY(1); }
+    }
+
+    .flow-step.number-1 { animation-delay: 0.1s; }
+    .flow-step.number-2 { animation-delay: 0.2s; }
+    .flow-step.number-3 { animation-delay: 0.3s; }
+    .flow-step.number-4 { animation-delay: 0.4s; }
+    .flow-step.number-5 { animation-delay: 0.5s; }
+    .flow-step.number-6 { animation-delay: 0.6s; }
+    .flow-step.number-7 { animation-delay: 0.7s; }
+    .flow-step.number-8 { animation-delay: 0.8s; }
+
+    .step-number {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    .step-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .step-desc {
+      font-size: 12px;
+      color: var(--fg-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .step-arrow {
+      color: var(--accent);
+      font-size: 20px;
+      animation: bounce 1s ease-in-out infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(4px); }
+    }
+
+    /* Features Grid */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 40px;
+    }
+
+    .feature-card {
+      padding: 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: all var(--transition);
+      animation: nodeAppear 0.6s ease-out both;
+    }
+
+    .feature-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 24px;
+    }
+
+    .feature-card h4 {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0 0 8px;
+    }
+
+    .feature-card p {
+      font-size: 13px;
+      color: var(--fg-muted);
+      margin: 0;
+      line-height: 1.7;
+    }
+
+    /* Code Snippet */
+    .code-block {
+      margin-top: 40px;
+      padding: 24px;
+      background: #050a12;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .code-block .comment { color: #6b7280; }
+    .code-block .keyword { color: #c084fc; }
+    .code-block .string { color: #34d399; }
+    .code-block .function { color: #60a5fa; }
+    .code-block .variable { color: #fbbf24; }
+
+    /* Stats Bar */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin-top: 40px;
+      padding-top: 40px;
+      border-top: 1px solid var(--border);
+    }
+
+    .stat {
+      text-align: center;
+      padding: 20px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 8px;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .container { padding: 24px 16px; }
+      .node { min-width: 100%; max-width: 100%; }
+      .flow-step { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">LIVE - Polling Active</div>
+      <h1>WhatsApp Agent Platform</h1>
+      <p class="subtitle">Claude Code integration via WhatsApp Agent Platform API — long-polling, session persistence, proactive messaging, and file transfers</p>
+    </header>
+
+    <section class="architecture" id="architecture">
+      <div class="connections" id="connections"></div>
+      <div class="flow-particles" id="particles"></div>
+
+      <div class="layer">
+        <div class="layer-title">WhatsApp Layer</div>
+        <div class="node-row">
+          <div class="node" data-id="whatsapp">
+            <div class="node-icon whatsapp">📱</div>
+            <h3>WhatsApp Client</h3>
+            <p>User sends messages, images, files</p>
+            <div class="tags">
+              <span class="tag">Text</span>
+              <span class="tag">Image</span>
+              <span class="tag">Document</span>
+              <span class="tag">Audio</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer">
+        <div class="layer-title">WhatsApp Agent Platform API</div>
+        <div class="node-row">
+          <div class="node" data-id="updates">
+            <div class="node-icon api">🔄</div>
+            <h3>GET /updates (Long Poll)</h3>
+            <p>15s timeout • 50 msg limit • offset persistence</p>
+            <div class="tags">
+              <span class="tag">15/min rate limit</span>
+              <span class="tag warning">30-day retention</span>
+            </div>
+          </div>
+          <div class="node" data-id="messages">
+            <div class="node-icon api">📤</div>
+            <h3>POST /messages</h3>
+            <p>Text, media, context (reply)</p>
+            <div class="tags">
+              <span class="tag">12/min rate limit</span>
+              <span class="tag success">429 retry w/ backoff</span>
+            </div>
+          </div>
+          <div class="node" data-id="media">
+            <div class="node-icon api">📎</div>
+            <h3>Media API</h3>
+            <p>POST /media • GET /media/{id} • DELETE /media/{id}</p>
+            <div class="tags">
+              <span class="tag">5MB image</span>
+              <span class="tag">16MB video</span>
+              <span class="tag">100MB doc</span>
+            </div>
+          </div>
+          <div class="node" data-id="status">
+            <div class="node-icon api">✓</div>
+            <h3>POST /statuses</h3>
+            <p>Mark read • Typing indicator</p>
+            <div class="tags">
+              <span class="tag">message_id required</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer">
+        <div class="layer-title">Agent Core (Node.js)</div>
+        <div class="node-row">
+          <div class="node" data-id="poll">
+            <div class="node-icon agent">⚡</div>
+            <h3>pollUpdates()</h3>
+            <p>Long-poll loop • offset save • 409 retry</p>
+            <div class="tags">
+              <span class="tag">mainLoop()</span>
+              <span class="tag">1s delay</span>
+            </div>
+          </div>
+          <div class="node" data-id="process">
+            <div class="node-icon agent">🧠</div>
+            <h3>processMessage()</h3>
+            <p>Type routing • deduplication • notification handling</p>
+            <div class="tags">
+              <span class="tag">wamid tracking</span>
+              <span class="tag">approval/input routing</span>
+            </div>
+          </div>
+          <div class="node" data-id="claude">
+            <div class="node-icon agent">🤖</div>
+            <h3>runClaudeAgent()</h3>
+            <p>spawn claude CLI • --resume session • stdin prompt</p>
+            <div class="tags">
+              <span class="tag">--print --json</span>
+              <span class="tag">bypassPermissions</span>
+              <span class="tag">data URL images</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer">
+        <div class="layer-title">Persistence Layer</div>
+        <div class="node-row">
+          <div class="node" data-id="offset">
+            <div class="node-icon storage">📍</div>
+            <h3>.whatsapp_offset</h3>
+            <p>Poll offset integer • survives restart</p>
+            <div class="tags">
+              <span class="tag">single integer</span>
+            </div>
+          </div>
+          <div class="node" data-id="processed">
+            <div class="node-icon storage">🔐</div>
+            <h3>.processed_messages</h3>
+            <p>Set of wamid strings • dedup protection</p>
+            <div class="tags">
+              <span class="tag">newline-delimited</span>
+            </div>
+          </div>
+          <div class="node" data-id="sessions">
+            <div class="node-icon storage">💬</div>
+            <h3>.claude_sessions/</h3>
+            <p>Per-user UUID session IDs • conversation continuity</p>
+            <div class="tags">
+              <span class="tag">user:123 → UUID</span>
+            </div>
+          </div>
+          <div class="node" data-id="pending">
+            <div class="node-icon storage">⏳</div>
+            <h3>.pending_notifications</h3>
+            <p>Map of approval/input requests • response routing</p>
+            <div class="tags">
+              <span class="tag">JSON Map</span>
+              <span class="tag">ref ID matching</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer">
+        <div class="layer-title">Proactive Exports</div>
+        <div class="node-row">
+          <div class="node" data-id="proactive">
+            <div class="node-icon flow">📢</div>
+            <h3>sendProactiveMessage()</h3>
+            <p>Send to MY_WHATSAPP_USER_ID</p>
+          </div>
+          <div class="node" data-id="proactive-file">
+            <div class="node-icon flow">📁</div>
+            <h3>sendProactiveFile()</h3>
+            <p>Upload + send • path allowlist • MIME detect</p>
+          </div>
+          <div class="node" data-id="notify">
+            <div class="node-icon flow">✅</div>
+            <h3>notifyTaskComplete/Failed/Blocked</h3>
+            <p>Structured status updates</p>
+          </div>
+          <div class="node" data-id="approval">
+            <div class="node-icon flow">❓</div>
+            <h3>requestApproval() / requestInput()</h3>
+            <p>Human-in-the-loop • ref ID tracking</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="flow-section">
+      <h2>Message Processing Flow</h2>
+      <div class="flow-diagram" id="flowDiagram">
+        <div class="flow-step number-1">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <div class="step-title">Long-poll /updates</div>
+            <div class="step-desc">GET with 15s timeout, offset persistence</div>
+          </div>
+          <span class="step-arrow">→</span>
+        </div>
+        <div class="flow-step number-2">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <div class="step-title">Deduplication Check</div>
+            <div class="step-desc">if (processedIds.has(msg.id)) skip</div>
+          </div>
+          <span class="step-arrow">→</span>
+        </div>
+        <div class="flow-step number-3">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <div class="step-title">Mark Read + Typing</div>
+            <div class="step-desc">POST /statuses {status: 'read', typing_indicator}</div>
+          </div>
+          <span class="step-arrow">→</span>
+        </div>
+        <div class="flow-step number-4">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <div class="step-title">Route by Type</div>
+            <div class="step-desc">text | image | document | audio | video | sticker | reaction</div>
+          </div>
+          <span class="step-arrow">→</span>
+        </div>
+        <div class="flow-step number-5">
+          <div class="step-number">5</div>
+          <div class="step-content">
+            <div class="step-title">Image? Download → Base64</div>
+            <div class="step-desc">GET /media/{id} → fetch URL → buffer → data:image/...;base64,...</div>
+          </div>
+          <span class="step-arrow">→</span>
+        </div>
+        <div class="flow-step number-6">
+          <div class="step-number">6</div>
+          <div class="step-content">
+            <div class="step-title">Load Session</div>
+            <div class="step-desc">.claude_sessions/user_xxx.json → sessionId or null</div>
+          </div>
+          <span class="step-arrow">→</span>
+        </div>
+        <div class="flow-step number-7">
+          <div class="step-number">7</div>
+          <div class="step-content">
+            <div class="step-title">Spawn Claude CLI</div>
+            <div class="step-desc">claude --print --output-format json --permission-mode bypassPermissions --resume <id> (stdin: prompt + ![image](dataUrl))</div>
+          </div>
+          <span class="step-arrow">→</span>
+        </div>
+        <div class="flow-step number-8">
+          <div class="step-number">8</div>
+          <div class="step-content">
+            <div class="step-title">Reply via WhatsApp</div>
+            <div class="step-desc">POST /messages {text: {body: result.result}} + save sessionId + save wamid</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="feature-card">
+        <div class="feature-icon">🔄</div>
+        <h4>Session Persistence</h4>
+        <p>Each WhatsApp user maps to a persistent Claude conversation via UUID session IDs. Context survives restarts.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🖼️</div>
+        <h4>Image Understanding</h4>
+        <p>Images downloaded via Media API, converted to base64 data URLs, embedded in prompt as markdown for Claude vision.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📁</div>
+        <h4>File Transfer</h4>
+        <p>Upload any file (code, logs, ZIPs) with MIME detection, size limits (5MB/16MB/100MB), path allowlisting.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h4>Proactive Messaging</h4>
+        <p>Agent can initiate: task complete/failed/blocked notifications, approval requests, input prompts with ref tracking.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <h4>Security First</h4>
+        <p>Token in .env (gitignored), no secret logging, path allowlisting, size validation, deduplication via wamid.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📦</div>
+        <h4>ZIP & Send</h4>
+        <p>zipAndSend() archives directories with archiver.js, uploads as document, cleans up temp ZIP automatically.</p>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="feature-card">
+        <div class="feature-icon">💻</div>
+        <h4>Claude CLI Integration</h4>
+        <p>Uses ~/.local/bin/claude with --resume for continuity, --print --output-format json for parsing, bypassPermissions for automation.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔁</div>
+        <h4>Rate Limit Handling</h4>
+        <p>429 responses trigger automatic retry with retry-after header. Poll replaced (409) handled with immediate retry.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🧹</div>
+        <h4>Clean Architecture</h4>
+        <p>ES Modules, dotenv config, single agent.js (~630 lines), no framework bloat. Runs on Windows/Pi/Linux.</p>
+      </div>
+    </section>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value">630</div>
+        <div class="stat-label">Lines of Code</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">2</div>
+        <div class="stat-label">Dependencies</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">5MB</div>
+        <div class="stat-label">Image Limit</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">100MB</div>
+        <div class="stat-label">Doc Limit</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">12/min</div>
+        <div class="stat-label">Send Limit</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">15/min</div>
+        <div class="stat-label">Poll Limit</div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <span class="comment">// Core loop - agent.js</span>
+      <span class="keyword">async</span> <span class="keyword">function</span> <span class="function">mainLoop</span>() {
+  <span class="keyword">while</span> (<span class="keyword">true</span>) {
+    <span class="keyword">const</span> { messages } = <span class="keyword">await</span> <span class="function">pollUpdates</span>();
+    <span class="keyword">for</span> (<span class="keyword">const</span> msg <span class="keyword">of</span> messages) {
+      <span class="keyword">await</span> <span class="function">markRead</span>(msg.id, <span class="keyword">true</span>);
+      <span class="keyword">const</span> reply = <span class="keyword">await</span> <span class="function">processMessage</span>(msg);
+      <span class="keyword">if</span> (reply) <span class="keyword">await</span> <span class="function">sendMessage</span>(msg.from, reply);
+    }
+    <span class="keyword">await</span> <span class="keyword">new</span> Promise(r => setTimeout(r, 1000));
+  }
+}
+      <br><br>
+      <span class="comment">// Image handling - base64 data URL</span>
+      <span class="keyword">const</span> base64 = buffer.toString(<span class="string">'base64'</span>);
+      <span class="keyword">const</span> dataUrl = <span class="string">`data:${mimeType};base64,${base64}`</span>;
+      prompt = <span class="string">`![image](${dataUrl})\n\n${prompt}`</span>;
+      <br><br>
+      <span class="comment">// Proactive approval with tracking</span>
+      <span class="keyword">export</span> <span class="keyword">async</span> <span class="keyword">function</span> <span class="function">requestApproval</span>(task, question, id) {
+  pendingNotifications.set(id, { <span class="variable">type</span>: <span class="string">'approval'</span>, task, question });
+  <span class="keyword">await</span> sendProactiveMessage(<span class="string">`❓ ${task}\n${question}\n(ref: ${id})`</span>);
+}
+    </div>
+  </div>
+
+  <script>
+    // Animate connections between nodes
+    function drawConnections() {
+      const nodes = document.querySelectorAll('.node[data-id]');
+      const container = document.getElementById('architecture');
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:-1;';
+      svg.setAttribute('viewBox', '0 0 1200 800');
+      svg.setAttribute('preserveAspectRatio', 'none');
+
+      const nodePositions = {};
+      nodes.forEach(node => {
+        const rect = node.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        nodePositions[node.dataset.id] = {
+          x: rect.left - containerRect.left + rect.width / 2,
+          y: rect.top - containerRect.top + rect.height / 2
+        };
+      });
+
+      const connections = [
+        ['whatsapp', 'updates'],
+        ['updates', 'poll'],
+        ['poll', 'process'],
+        ['process', 'claude'],
+        ['process', 'offset'],
+        ['process', 'processed'],
+        ['process', 'sessions'],
+        ['process', 'pending'],
+        ['claude', 'messages'],
+        ['messages', 'whatsapp'],
+        ['media', 'process'],
+        ['status', 'process'],
+        ['proactive', 'messages'],
+        ['proactive-file', 'media'],
+        ['notify', 'proactive'],
+        ['approval', 'proactive'],
+      ];
+
+      connections.forEach(([from, to], i) => {
+        if (nodePositions[from] && nodePositions[to]) {
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          const dx = nodePositions[to].x - nodePositions[from].x;
+          const dy = nodePositions[to].y - nodePositions[from].y;
+          const midX = nodePositions[from].x + dx / 2;
+          const ctrlOffset = Math.abs(dx) > Math.abs(dy) ? dy * 0.3 : dx * 0.3;
+
+          path.setAttribute('d', `M${nodePositions[from].x},${nodePositions[from].y} Q${midX},${nodePositions[from].y + ctrlOffset} ${nodePositions[to].x},${nodePositions[to].y}`);
+          path.setAttribute('stroke', 'var(--border)');
+          path.setAttribute('stroke-width', '2');
+          path.setAttribute('fill', 'none');
+          path.setAttribute('stroke-dasharray', '8,4');
+          path.setAttribute('opacity', '0');
+          path.style.animation = `connectionDraw 1.5s ease-out ${0.3 + i * 0.05}s forwards`;
+          svg.appendChild(path);
+        }
+      });
+
+      container.appendChild(svg);
+    }
+
+    // Spawn flow particles
+    function spawnParticles() {
+      const container = document.getElementById('architecture');
+      const particlesContainer = document.getElementById('particles');
+
+      setInterval(() => {
+        const nodes = document.querySelectorAll('.node[data-id="process"], .node[data-id="claude"], .node[data-id="messages"]');
+        if (nodes.length === 0) return;
+
+        const node = nodes[Math.floor(Math.random() * nodes.length)];
+        const rect = node.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = (rect.left - containerRect.left + rect.width / 2 - 4) + 'px';
+        particle.style.top = (rect.top - containerRect.top + rect.height / 2 - 4) + 'px';
+        particle.style.animationDelay = Math.random() * 2 + 's';
+        particle.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+
+        const targetX = (Math.random() - 0.5) * 200;
+        const targetY = (Math.random() - 0.5) * 100 - 50;
+        particle.style.setProperty('--tx', targetX + 'px');
+        particle.style.setProperty('--ty', targetY + 'px');
+
+        particlesContainer.appendChild(particle);
+        setTimeout(() => particle.remove(), 3000);
+      }, 800);
+    }
+
+    // Initialize animations after layout
+    setTimeout(() => {
+      drawConnections();
+      spawnParticles();
+    }, 500);
+
+    // Handle resize
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const svg = document.querySelector('#architecture svg');
+        if (svg) svg.remove();
+        drawConnections();
+      }, 100);
+    });
+  </script>
+</body>
+</html>
