@@ -22,7 +22,7 @@ A Node.js agent that connects WhatsApp's Agent Platform API to Claude Code, enab
 ## Quick Start
 
 ### 1. Get WhatsApp Agent Platform Credentials
-
+(Not availible in all regions yet)
 1. Open WhatsApp on your phone
 2. Go to **Settings → Agents → Create Agent**
 3. Open the agent chat → **Chat Info** 
@@ -31,13 +31,10 @@ A Node.js agent that connects WhatsApp's Agent Platform API to Claude Code, enab
 ### 2. Install & Configure
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/KATTO-GG/whatsapp-agent.git
 cd whatsapp-agent
 npm install
-
-# Copy example env and add your credentials
 cp .env.example .env
-# Edit .env with your API token and user ID
 ```
 
 ### 3. Run the Agent
