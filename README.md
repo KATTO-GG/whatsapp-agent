@@ -17,7 +17,7 @@ A Node.js agent that connects WhatsApp's Agent Platform API to Claude Code, enab
 
 - Node.js 18+
 - [Claude Code](https://claude.ai/code) installed and authenticated
-- WhatsApp account with [Agent Platform access]([https://developers.facebook.com/docs/whatsapp/agent-platform](https://scontent.xx.fbcdn.net/v/t39.8562-6/780673921_1069344625497026_4424559172353740535_n.pdf?_nc_cat=104&ccb=1-7&_nc_sid=e280be&_nc_ohc=oDy8VvDtMwkQ7kNvwEGekPG&_nc_oc=AdqJm0ej-Ar_Xd1TQ5Pm90P76vWsTrqqtUH390IxSOUkQVR51yKZ6MhTzcrJ3z2DaPo&_nc_zt=14&_nc_ht=scontent.xx&_nc_gid=kKcqkFxyx9aNHKLyu4UbPg&_nc_ss=78289&oh=00_AQNtRVFKBSnGp7xkE8MIsPaqdvajvLTCjzNZzIqmIQIpnQ&oe=6ADDC9D6))
+- WhatsApp account with [Agent Platform access]([https://developers.facebook.com/docs/whatsapp/agent-platform]https://scontent.xx.fbcdn.net/v/t39.8562-6/780673921_1069344625497026_4424559172353740535_n.pdf?_nc_cat=104&ccb=1-7&_nc_sid=e280be&_nc_ohc=oDy8VvDtMwkQ7kNvwEGekPG&_nc_oc=AdqJm0ej-Ar_Xd1TQ5Pm90P76vWsTrqqtUH390IxSOUkQVR51yKZ6MhTzcrJ3z2DaPo&_nc_zt=14&_nc_ht=scontent.xx&_nc_gid=kKcqkFxyx9aNHKLyu4UbPg&_nc_ss=78289&oh=00_AQNtRVFKBSnGp7xkE8MIsPaqdvajvLTCjzNZzIqmIQIpnQ&oe=6ADDC9D6)
 
 ## Quick Start
 
